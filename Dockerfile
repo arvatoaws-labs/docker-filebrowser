@@ -1,4 +1,4 @@
-FROM ghcr.io/arvatoaws-labs/filebrowser:v2.42.5-s6
+FROM ghcr.io/arvatoaws-labs/filebrowser:latest
 
 VOLUME /data
 COPY config.json /.filebrowser.json
