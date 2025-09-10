@@ -6,4 +6,6 @@ RUN mkdir -p /data && chown -R 1000:1000 /data && mkdir -p /config && chown -R 1
 USER 1000
 VOLUME /data
 VOLUME /config
+
+USER root
 COPY config.json /config/settings.json
