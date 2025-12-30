@@ -4,19 +4,59 @@ on:
   workflow_dispatch:
   push:
     branches:
+    - dev
     - main
-    - master
   schedule:
-  - cron: '30 12 * * 3'
+  - cron: '30 12 * * *'
 
 jobs:
   arm64:
     runs-on: arvato
+    outputs:
+      image-digest-prod: ${{ steps.build-arm64-prod.outputs.digest }}
+      image-digest-dev: ${{ steps.build-arm64-dev.outputs.digest }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 1
+    - name: Docker meta Dev
+      id: meta-arm64-dev
+      if: github.ref == 'refs/heads/dev'
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/arvatoaws-labs/asy-filebrowser
+        flavor: |
+          latest=false
+          suffix=-arm64
+        tags: |
+          type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}},prefix=dev-
+          type=sha,format=short,prefix=dev-sha-
+          type=semver,pattern={{version}},prefix=dev-
+          type=semver,pattern={{major}}.{{minor}},prefix=dev-
+          type=semver,pattern={{major}},prefix=dev-
+          type=ref,event=branch,prefix=dev-branch-
+          type=ref,event=tag,prefix=dev-tag-
+          type=ref,event=pr,prefix=dev-pr-
+          type=raw,value=dev
+    - name: Docker meta Prod
+      id: meta-arm64-prod
+      if: github.ref == 'refs/heads/main'
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/arvatoaws-labs/asy-filebrowser
+        flavor: |
+          latest=true
+          suffix=-arm64
+        tags: |
+          type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}}
+          type=sha,format=short,prefix=sha-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=ref,event=branch,prefix=branch-
+          type=ref,event=tag,prefix=tag-
+          type=ref,event=pr,prefix=pr-
     - name: Login to GitHub Packages Docker Registry
       uses: docker/login-action@v3
       with:
@@ -24,18 +64,29 @@ jobs:
         username: ${{github.actor}}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and Push Latest
+      id: build-arm64-prod
       uses: docker/build-push-action@v6
+      if: github.ref == 'refs/heads/main'
       with:
         push: true
         pull: true
-        tags: ghcr.io/arvatoaws-labs/asy-filebrowser:latest-arm64
-        cache-from: type=registry,ref=ghcr.io/arvatoaws-labs/asy-filebrowser:latest-arm64
-        cache-to: type=inline
+        tags: ${{ steps.meta-arm64-prod.outputs.tags }} # ghcr.io/arvatoaws-labs/asy-filebrowser:latest-arm64
+    - name: Build and Push Dev
+      id: build-arm64-dev
+      uses: docker/build-push-action@v6
+      if: github.ref == 'refs/heads/dev'
+      with:
+        push: true
+        pull: true
+        tags: ${{ steps.meta-arm64-dev.outputs.tags }} # ghcr.io/arvatoaws-labs/asy-filebrowser:dev-arm64
   amd64:
-    runs-on: ubuntu-latest
+    runs-on: arvato-x86
+    outputs:
+      image-digest-prod: ${{ steps.build-amd64-prod.outputs.digest }}
+      image-digest-dev: ${{ steps.build-amd64-dev.outputs.digest }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 1
     - name: Login to GitHub Packages Docker Registry
@@ -44,33 +95,125 @@ jobs:
         registry: ghcr.io
         username: ${{github.actor}}
         password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Docker meta Dev
+      id: meta-amd64-dev
+      if: github.ref == 'refs/heads/dev'
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/arvatoaws-labs/asy-filebrowser
+        flavor: |
+          latest=false
+          suffix=-amd64
+        tags: |
+          type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}},prefix=dev-
+          type=sha,format=short,prefix=dev-sha-
+          type=semver,pattern={{version}},prefix=dev-
+          type=semver,pattern={{major}}.{{minor}},prefix=dev-
+          type=semver,pattern={{major}},prefix=dev-
+          type=ref,event=branch,prefix=dev-branch-
+          type=ref,event=tag,prefix=dev-tag-
+          type=ref,event=pr,prefix=dev-pr-
+          type=raw,value=dev
+    - name: Docker meta Prod
+      id: meta-amd64-prod
+      if: github.ref == 'refs/heads/main'
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/arvatoaws-labs/asy-filebrowser
+        flavor: |
+          latest=true
+          suffix=-amd64
+        tags: |
+          type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}}
+          type=sha,format=short,prefix=sha-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=ref,event=branch,prefix=branch-
+          type=ref,event=tag,prefix=tag-
+          type=ref,event=pr,prefix=pr-
     - name: Build and Push Latest
+      id: build-amd64-prod
       uses: docker/build-push-action@v6
+      if: github.ref == 'refs/heads/main'
       with:
         push: true
         pull: true
-        tags: ghcr.io/arvatoaws-labs/asy-filebrowser:latest-amd64
-        cache-from: type=registry,ref=ghcr.io/arvatoaws-labs/asy-filebrowser:latest-amd64
-        cache-to: type=inline
+        tags: ${{ steps.meta-amd64-prod.outputs.tags }} # ghcr.io/arvatoaws-labs/asy-filebrowser:latest-amd64
+    - name: Build and Push Dev
+      id: build-amd64-dev
+      uses: docker/build-push-action@v6
+      if: github.ref == 'refs/heads/dev'
+      with:
+        push: true
+        pull: true
+        tags: ${{ steps.meta-amd64-dev.outputs.tags }} # ghcr.io/arvatoaws-labs/asy-filebrowser:dev-amd64
   manifest:
     runs-on: arvato
     needs: [arm64, amd64]
     steps:
     - name: Checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 1
+    - name: Docker meta Dev
+      id: meta-dev
+      if: github.ref == 'refs/heads/dev'
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/arvatoaws-labs/asy-filebrowser
+        flavor: |
+          latest=false
+        tags: |
+          type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}},prefix=dev-
+          type=sha,format=short,prefix=dev-sha-
+          type=semver,pattern={{version}},prefix=dev-
+          type=semver,pattern={{major}}.{{minor}},prefix=dev-
+          type=semver,pattern={{major}},prefix=dev-
+          type=ref,event=branch,prefix=dev-branch-
+          type=ref,event=tag,prefix=dev-tag-
+          type=ref,event=pr,prefix=dev-pr-
+          type=raw,value=dev
+    - name: Docker meta Prod
+      id: meta-prod
+      if: github.ref == 'refs/heads/main'
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/arvatoaws-labs/asy-filebrowser
+        flavor: |
+          latest=true
+        tags: |
+          type=schedule,pattern={{date 'YYYYMMDD-hhmmss' tz='Europe/Berlin'}}
+          type=sha,format=short,prefix=sha-
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=ref,event=branch,prefix=branch-
+          type=ref,event=tag,prefix=tag-
+          type=ref,event=pr,prefix=pr-
     - name: Login to GitHub Packages Docker Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{github.actor}}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Merge manifests Latest
-      run: |
-        set -x
-        echo "Merging manifests"
-        docker manifest create "ghcr.io/arvatoaws-labs/asy-filebrowser:latest" "ghcr.io/arvatoaws-labs/asy-filebrowser:latest-arm64" "ghcr.io/arvatoaws-labs/asy-filebrowser:latest-amd64"
-        docker manifest annotate --arch arm64 "ghcr.io/arvatoaws-labs/asy-filebrowser:latest" "ghcr.io/arvatoaws-labs/asy-filebrowser:latest-arm64"
-        docker manifest annotate --arch amd64 "ghcr.io/arvatoaws-labs/asy-filebrowser:latest" "ghcr.io/arvatoaws-labs/asy-filebrowser:latest-amd64"
-        docker manifest push "ghcr.io/arvatoaws-labs/asy-filebrowser:latest"
+    - name: Create Docker Manifest for Dev
+      uses: int128/docker-manifest-create-action@v2
+      id: build-dev
+      if: github.ref == 'refs/heads/dev'
+      with:
+        index-annotations: ${{ steps.meta-dev.outputs.labels }}
+        tags: ${{ steps.meta-dev.outputs.tags }}
+        sources: |
+          ghcr.io/arvatoaws-labs/asy-filebrowser@${{ needs.arm64.outputs.image-digest-dev }}
+          ghcr.io/arvatoaws-labs/asy-filebrowser@${{ needs.amd64.outputs.image-digest-dev }}
+    - name: Create Docker Manifest for Prod
+      uses: int128/docker-manifest-create-action@v2
+      id: build-prod
+      if: github.ref == 'refs/heads/main'
+      with:
+        index-annotations: ${{ steps.meta-prod.outputs.labels }}
+        tags: ${{ steps.meta-prod.outputs.tags }}
+        sources: |
+          ghcr.io/arvatoaws-labs/asy-filebrowser@${{ needs.arm64.outputs.image-digest-prod }}
+          ghcr.io/arvatoaws-labs/asy-filebrowser@${{ needs.amd64.outputs.image-digest-prod }}
